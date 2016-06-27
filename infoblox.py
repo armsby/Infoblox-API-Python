@@ -66,7 +66,7 @@ class Infoblox(object):
     delete_network_extattrs
     """
 
-    def __init__(self, iba_ipaddr, iba_user, iba_password, iba_wapi_version, iba_dns_view, iba_network_view, iba_verify_ssl=False, iba_timeout=60):
+    def __init__(self, iba_ipaddr, iba_user, iba_password, iba_wapi_version, iba_dns_view, iba_network_view, iba_verify_ssl=False, iba_ttl=False, iba_timeout=60):
         """ Class initialization method
         :param iba_ipaddr: IBA IP address of management interface
         :param iba_user: IBA user name
@@ -75,10 +75,12 @@ class Infoblox(object):
         :param iba_dns_view: IBA default view
         :param iba_network_view: IBA default network view
         :param iba_verify_ssl: IBA SSL certificate validation (example: False)
+        :param iba_ttl:    record ttl
         :param iba_timeout: connection timeout
         """
         self.iba_host = iba_ipaddr
         self.iba_user = iba_user
+        self.iba_ttl = iba_ttl
         self.iba_password = iba_password
         self.iba_wapi_version = iba_wapi_version
         self.iba_dns_view = iba_dns_view
@@ -138,7 +140,11 @@ class Infoblox(object):
             else:
                 raise InfobloxBadInputParameter('Expected IP or NET address in CIDR format')
         rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host' + '?_return_fields=ipv4addrs'
-        payload = '{"ipv4addrs": [{"configure_for_dhcp": false,"ipv4addr": "' + ipv4addr + '"}],"name": "' + fqdn + '","view": "' + self.iba_dns_view + '"}'
+        if self.iba_ttl:
+            ttl = ',"ttl": ' + str(self.iba_ttl)
+        else:
+            ttl = "" 
+        payload = '{"ipv4addrs": [{"configure_for_dhcp": false,"ipv4addr": "' + ipv4addr + '"}],"name": "' + fqdn + '","view": "' + self.iba_dns_view + '"' + ttl + '}'
         try:
             r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
             r_json = r.json()
@@ -161,7 +167,11 @@ class Infoblox(object):
         :param fqdn: hostname in FQDN
         """
         rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:txt'
-        payload = '{"text": "' + text + '","name": "' + fqdn + '","view": "' + self.iba_dns_view + '"}'
+        if self.iba_ttl:
+            ttl = ',"ttl": ' + str(self.iba_ttl)
+        else:
+            ttl = "" 
+        payload = '{"text": "' +  text + '","name": "' + fqdn + '","view": "' + self.iba_dns_view + '"' + ttl + '}'
         try:
             r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
             r_json = r.json()
@@ -337,7 +347,11 @@ class Infoblox(object):
         :param name: the name for a CNAME record in FQDN format
         """
         rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:cname'
-        payload = '{"canonical": "' + canonical + '","name": "' + name + '","view": "' + self.iba_dns_view + '"}'
+        if self.iba_ttl:
+            ttl = ',"ttl": ' + str(self.iba_ttl)
+        else:
+            ttl = "" 
+	    payload = '{"canonical": "' + canonical + '","name": "' + name + '","view": "' + self.iba_dns_view + '"' + ttl + '}'
         try:
             r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
             r_json = r.json()
