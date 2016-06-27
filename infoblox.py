@@ -66,7 +66,7 @@ class Infoblox(object):
 	delete_network_extattrs
     """
 
-    def __init__(self, iba_ipaddr, iba_user, iba_password, iba_wapi_version, iba_dns_view, iba_network_view, iba_verify_ssl=False):
+    def __init__(self, iba_ipaddr, iba_user, iba_password, iba_wapi_version, iba_dns_view, iba_network_view, iba_verify_ssl=False, iba_timeout=60):
 	""" Class initialization method
 	:param iba_ipaddr: IBA IP address of management interface
 	:param iba_user: IBA user name
@@ -75,6 +75,7 @@ class Infoblox(object):
 	:param iba_dns_view: IBA default view
 	:param iba_network_view: IBA default network view
         :param iba_verify_ssl: IBA SSL certificate validation (example: False)
+        :param iba_timeout: connection timeout
 	"""
 	self.iba_host = iba_ipaddr
 	self.iba_user = iba_user
@@ -83,6 +84,7 @@ class Infoblox(object):
 	self.iba_dns_view = iba_dns_view
 	self.iba_network_view = iba_network_view
         self.iba_verify_ssl = iba_verify_ssl
+        self.iba_timeout = iba_timeout
 
     def get_next_available_ip(self, network):
 	""" Implements IBA next_available_ip REST API call
@@ -91,13 +93,13 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?network=' + network + '&network_view=' + self.iba_network_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    net_ref = r_json[0]['_ref']
 		    rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + net_ref + '?_function=next_available_ip&num=1'
-		    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+		    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 		    r_json = r.json()
 		    if r.status_code == 200:
 			ip_v4 = r_json['ips'][0]
@@ -138,7 +140,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host' + '?_return_fields=ipv4addrs'
 	payload = '{"ipv4addrs": [{"configure_for_dhcp": false,"ipv4addr": "' + ipv4addr + '"}],"name": "' + fqdn + '","view": "' + self.iba_dns_view + '"}'
 	try:
-	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200 or r.status_code == 201:
 	    	return r_json['ipv4addrs'][0]['ipv4addr']
@@ -159,9 +161,9 @@ class Infoblox(object):
 	:param fqdn: hostname in FQDN
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:txt'
-	payload = '{"text": "' +  text + '","name": "' + fqdn + '","view": "' + self.iba_dns_view + '"}'
+	payload = '{"text": "' + text + '","name": "' + fqdn + '","view": "' + self.iba_dns_view + '"}'
 	try:
-	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200 or r.status_code == 201:
 	    	return
@@ -181,14 +183,14 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host?name=' + fqdn + '&view=' + self.iba_dns_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    host_ref = r_json[0]['_ref']
 		    if host_ref and re.match("record:host\/[^:]+:([^\/]+)\/", host_ref).group(1) == fqdn:
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + host_ref
-			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -216,14 +218,14 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:txt?name=' + fqdn + '&view=' + self.iba_dns_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    host_ref = r_json[0]['_ref']
 		    if host_ref and re.match("record:txt\/[^:]+:([^\/]+)\/", host_ref).group(1) == fqdn:
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + host_ref
-			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -305,7 +307,7 @@ class Infoblox(object):
 			    aliases.remove(alias_fqdn)
 			    payload = '{"aliases": ' + json.JSONEncoder().encode(aliases) + '}'
 			    rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + host_ref
-			    r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+			    r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 			    if r.status_code == 200:
 				return
 			    else:
@@ -337,7 +339,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:cname'
 	payload = '{"canonical": "' + canonical + '","name": "' + name + '","view": "' + self.iba_dns_view + '"}'
 	try:
-	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200 or r.status_code == 201:
 		return
@@ -357,14 +359,14 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:cname?name=' + fqdn + '&view=' + self.iba_dns_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    cname_ref = r_json[0]['_ref']
 		    if cname_ref and re.match("record:cname\/[^:]+:([^\/]+)\/", cname_ref).group(1) == fqdn:
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + cname_ref
-			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -394,7 +396,7 @@ class Infoblox(object):
         rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:cname'
         payload = json.dumps({'name': name})
         try:
-            r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+            r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
             r_json = r.json()
             # RFC1912 - A CNAME can not coexist with any other data, we should expect utmost one entry
             if r.status_code == 200 and len(r_json) == 1:
@@ -402,7 +404,7 @@ class Infoblox(object):
                 cname_ref = ibx_cname['_ref']
                 payload = '{"canonical": ' + json.JSONEncoder().encode(canonical) + '}'
                 rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + cname_ref
-                r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+                r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
                 if r.status_code == 200 or r.status_code == 201:
                     return
                 else:
@@ -427,7 +429,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/range'
 	payload = '{"start_addr": "' + start_ip_v4 + '","end_addr": "' + end_ip_v4 + '"}'
 	try:
-	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200 or r.status_code == 201:
 		return
@@ -448,14 +450,14 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/range?start_addr=' + start_ip_v4 + '?end_addr=' + end_ip_v4 + '&network_view=' + self.iba_network_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    range_ref = r_json[0]['_ref']
 		    if range_ref:
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + range_ref
-			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -488,7 +490,7 @@ class Infoblox(object):
 	else:
 	    rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host?name=' + fqdn + '&view=' + self.iba_dns_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -513,7 +515,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host?name~=' + fqdn + '&view=' + self.iba_dns_view
 	hosts = []
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -540,7 +542,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:txt?name~=' + fqdn + '&view=' + self.iba_dns_view
 	hosts = {}
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -566,7 +568,7 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/ipv4address?ip_address=' + ip_v4 + '&network_view=' + self.iba_network_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -594,7 +596,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host?name=' + fqdn + '&view=' + self.iba_dns_view
 	ipv4addrs = []
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -624,7 +626,7 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host?name=' + fqdn + '&view=' + self.iba_dns_view + '&_return_fields=name,extattrs'
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -662,7 +664,7 @@ class Infoblox(object):
 	    fields = 'network,netmask'
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?network=' + network + '&network_view=' + self.iba_network_view + '&_return_fields=' + fields
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -686,7 +688,7 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/ipv4address?ip_address=' + ip_v4 + '&network_view=' + self.iba_network_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -720,7 +722,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?*' + "&*".join(attributes.split(",")) + '&network_view=' + self.iba_network_view
 	networks = []
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -754,7 +756,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/record:host?*' + "&*".join(attributes.split(",")) + '&view=' + self.iba_dns_view
 	hosts = []
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -782,7 +784,7 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?network=' + network + '&network_view=' + self.iba_network_view + '&_return_fields=network,extattrs'
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -817,7 +819,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?network=' + network + '&network_view=' + self.iba_network_view + '&_return_fields=network,extattrs'
 	extattrs = {}
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -828,7 +830,7 @@ class Infoblox(object):
 			    extattrs[attr_name]['value'] = attr_value
 			payload = '{"extattrs": ' + json.JSONEncoder().encode(extattrs) + '}'
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + network_ref
-			r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+			r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -857,7 +859,7 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?network=' + network + '&network_view=' + self.iba_network_view + '&_return_fields=network,extattrs'
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
@@ -869,7 +871,7 @@ class Infoblox(object):
 				del extattrs[attribute]
 			payload = '{"extattrs": ' + json.JSONEncoder().encode(extattrs) + '}'
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + network_ref
-			r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+			r = requests.put(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -898,7 +900,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network'
 	payload = '{"network": "' + network + '","network_view": "' + self.iba_network_view + '"}'
 	try:
-	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200 or r.status_code == 201:
 		return
@@ -918,14 +920,14 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/network?network=' + network + '&network_view=' + self.iba_network_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    network_ref = r_json[0]['_ref']
 		    if network_ref:
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + network_ref
-			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -954,7 +956,7 @@ class Infoblox(object):
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/networkcontainer'
 	payload = '{"network": "' + networkcontainer + '","network_view": "' + self.iba_network_view + '"}'
 	try:
-	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload)
+	    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, data=payload, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200 or r.status_code == 201:
 		return
@@ -974,14 +976,14 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/networkcontainer?network=' + networkcontainer + '&network_view=' + self.iba_network_view
 	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    network_ref = r_json[0]['_ref']
 		    if network_ref:
 			rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + network_ref
-			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+			r = requests.delete(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 			if r.status_code == 200:
 			    return
 			else:
@@ -1011,13 +1013,13 @@ class Infoblox(object):
 	"""
 	rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/networkcontainer?network=' + networkcontainer + '&network_view=' + self.iba_network_view
     	try:
-	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+	    r = requests.get(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 	    r_json = r.json()
 	    if r.status_code == 200:
 		if len(r_json) > 0:
 		    net_ref = r_json[0]['_ref']
 		    rest_url = 'https://' + self.iba_host + '/wapi/v' + self.iba_wapi_version + '/' + net_ref + '?_function=next_available_network&cidr=' + str(cidr) + '&num=1'
-		    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl)
+		    r = requests.post(url=rest_url, auth=(self.iba_user, self.iba_password), verify=self.iba_verify_ssl, timeout=self.iba_timeout)
 		    r_json = r.json()
 		    if r.status_code == 200:
 			network = r_json['networks'][0]
